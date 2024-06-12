@@ -33,6 +33,7 @@ print(actual_value.head())
 print(features.shape)
 print(actual_value.shape)
 
+features = (features - features.mean()) / features.std() #this is called normalization, ensures all features contribute to GD
 
 def train_test_split(features, actual_value, test_size=0.2, random_state=None):
     if random_state:
@@ -56,3 +57,45 @@ print("Shape of features_test:", features_test.shape)
 print("Shape of actual_value_train:", actual_value_train.shape)
 print("Shape of actual_value_test:", actual_value_test.shape)
 
+# The gradient ssr function
+def ssr_gradient(features, actual_value, weights):
+    predictions = np.dot(features, weights)
+    residuals = predictions - actual_value.values.ravel() #this function ravel turns actual_value into an array
+    gradient_w0 = residuals.mean()
+    gradient_w = np.dot(features[:,1:].T, residuals) / len(actual_value)
+    return np.concatenate(([gradient_w0], gradient_w))
+
+# Implement gradient descent
+def gradient_descent(gradient, features, actual_value, start, learn_rate=.001, n_iter=10000, tolerance=1e-6):
+    weights = np.array(start)
+    for i in range(n_iter):
+        grad = gradient(features, actual_value, weights)
+        new_weights = weights - learn_rate * grad
+        if np.all(np.abs(new_weights - weights) <= tolerance):
+            break
+        weights = new_weights
+    return weights
+
+# Add a column of ones for the intercept terms
+features_train_with_intercept = np.c_[np.ones(features_train.shape[0]), features_train]
+features_test_with_intercept = np.c_[np.ones(features_test.shape[0]), features_test]
+
+# Initialize weights to 0
+initial_weights = np.zeros(features_train_with_intercept.shape[1])
+
+# Gradient descent
+optimal_weights = gradient_descent(ssr_gradient, features_train_with_intercept, actual_value_train, initial_weights, learn_rate=0.001, n_iter=10000, tolerance=1e-6)
+
+print("Optimal weights:", optimal_weights)
+
+# Test on test data
+predictions = np.dot(features_test_with_intercept, optimal_weights)
+# MSE
+mse = np.mean((predictions - actual_value_test.values.ravel()) ** 2)
+print("MSE:", mse)
+
+# Calculate R² Score
+ss_tss = np.sum((actual_value_test.values.ravel() - np.mean(actual_value_test.values.ravel())) ** 2)
+ss_rss = np.sum((actual_value_test.values.ravel() - predictions) ** 2)
+r2_score = 1 - (ss_rss / ss_tss)
+print("R² Score:", r2_score)
